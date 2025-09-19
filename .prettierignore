@@ -1,0 +1,30 @@
+# Ignore artifacts:
+
+**/*.svg
+/dist
+.dockerignore
+.DS_Store
+.eslintignore
+*.png
+*.toml
+docker
+.editorconfig
+Dockerfile*
+.gitignore
+.prettierignore
+LICENSE
+.eslintcache
+*.lock
+yarn-error.log
+.history
+CNAME
+/build
+/public
+
+# Auto-generated type declarations
+src/auto-imports.d.ts
+src/vite-env.d.ts
+README.md
+eslint.config.js
+vite.config.ts
+.prettierrc.json
