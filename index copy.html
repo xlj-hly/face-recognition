@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <div style="max-width: 880px; margin: 12px auto; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
+    <h3 style="margin: 0 0 8px;">Human 实时人脸检测与识别示例</h3>
+    <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
+      需在 HTTPS 或 localhost 下访问以启用摄像头权限。
+    </div>
+    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;">
+      <input id="name-input" placeholder="输入姓名后点击注册当前人脸" style="padding: 6px 8px;" />
+      <button id="btn-register" style="padding: 6px 12px;">注册当前人脸</button>
+      <button id="btn-clear" style="padding: 6px 12px;">清空人脸库</button>
+      <span id="status" style="font-size: 12px; color: #333;"></span>
+    </div>
+    <div style="position: relative; width: 864px; height: 486px; background: #000;">
+      <video id="video" autoplay playsinline muted style="display:none;"></video>
+      <canvas id="canvas" width="864" height="486" style="width: 864px; height: 486px;"></canvas>
+    </div>
+  </div>
+
+  <script type="module">
+  import { Human } from 'https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.esm.js';
+  (async () => {
+    // 配置：启用人脸检测与特征向量
+    const human = new Human({
+      modelBasePath: './models',
+      backend: 'webgl',
+      cacheSensitivity: 0,
+      warmup: 'none',
+      filter: { enabled: true, equalization: true },
+      face: {
+        enabled: true,
+        detector: { enabled: true, rotation: true, maxDetected: 5 },
+        mesh: { enabled: true },
+        iris: { enabled: true },
+        description: { enabled: true },
+        embedding: { enabled: true },
+        emotion: { enabled: false }
+      },
+      body: { enabled: false },
+      hand: { enabled: false },
+      gesture: { enabled: false },
+      segmentation: { enabled: false },
+    });
+
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById('status');
+    const inputName = document.getElementById('name-input');
+    const btnRegister = document.getElementById('btn-register');
+    const btnClear = document.getElementById('btn-clear');
+
+    const FACE_DB_KEY = 'human-face-db-v1';
+    let faceDB = loadFaceDB();
+
+    function setStatus(msg) { statusEl.textContent = msg; }
+
+    function loadFaceDB() {
+      try {
+        const raw = localStorage.getItem(FACE_DB_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) { return []; }
+    }
+
+    function saveFaceDB() {
+      try { localStorage.setItem(FACE_DB_KEY, JSON.stringify(faceDB)); } catch (e) {}
+    }
+
+    function cosineSimilarity(a, b) {
+      if (!a || !b || a.length !== b.length) return -1;
+      let dot = 0, na = 0, nb = 0;
+      for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+      return dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-12);
+    }
+
+    function findBestMatch(embedding, threshold = 0.75) {
+      if (!embedding) return { name: '', score: -1 };
+      let best = { name: '', score: -1 };
+      for (const item of faceDB) {
+        const score = cosineSimilarity(embedding, item.embedding);
+        if (score > best.score) best = { name: item.name, score };
+      }
+      if (best.score >= threshold) return best;
+      return { name: 'Unknown', score: best.score };
+    }
+
+    btnRegister.addEventListener('click', async () => {
+      const name = (inputName.value || '').trim();
+      if (!name) { setStatus('请输入姓名再注册'); return; }
+      const result = human.result || {};
+      const faces = result.face || [];
+      if (!faces.length || !faces[0].embedding) { setStatus('未检测到人脸或特征，靠近摄像头重试'); return; }
+      const embedding = Array.from(faces[0].embedding);
+      faceDB.push({ name, embedding });
+      saveFaceDB();
+      setStatus(`已注册：${name}（库大小：${faceDB.length}）`);
+    });
+
+    btnClear.addEventListener('click', () => {
+      faceDB = [];
+      saveFaceDB();
+      setStatus('已清空人脸库');
+    });
+
+    setStatus('模型加载中...');
+    await human.load();
+    setStatus('正在启动摄像头...');
+    await human.webcam.start({ crop: true });
+    video.srcObject = human.webcam.stream;
+    await video.play();
+
+    // 启动内置视频检测循环（持续更新 human.result）
+    human.video(human.webcam.element);
+
+    // 绘制循环：将当前帧+检测结果画到画布，并标注姓名
+    function drawLoop() {
+      // 使用当前摄像头帧作底图
+      ctx.drawImage(human.webcam.element, 0, 0, canvas.width, canvas.height);
+
+      // 取平滑后的结果用于绘制
+      const interpolated = human.next();
+      const faces = (interpolated && interpolated.face) ? interpolated.face : [];
+
+      // 拷贝一份用于自定义标签绘制
+      const resultForDraw = { ...interpolated, face: faces.map(f => ({ ...f })) };
+
+      // 为每张人脸匹配姓名并赋值 label
+      for (const f of resultForDraw.face) {
+        const match = findBestMatch(f.embedding, 0.75);
+        f.label = match.name ? `${match.name}` : 'Unknown';
+      }
+
+      // 绘制检测框与关键点
+      human.draw.face(canvas, resultForDraw.face);
+
+      // 额外在框上方绘制文字（更可控）
+      ctx.font = '16px sans-serif';
+      ctx.fillStyle = '#00E5FF';
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = 3;
+      for (const f of resultForDraw.face) {
+        const box = f.box;
+        if (!box) continue;
+        const x = box[0];
+        const y = Math.max(16, box[1] - 6);
+        const label = f.label || 'Unknown';
+        // 文本描边+填充
+        ctx.strokeText(label, x, y);
+        ctx.fillText(label, x, y);
+      }
+
+      requestAnimationFrame(drawLoop);
+    }
+
+    setStatus('摄像头就绪，开始检测');
+    requestAnimationFrame(drawLoop);
+  })();
+  </script>
+</body>
+</html>

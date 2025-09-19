@@ -4,7 +4,7 @@ const Index: React.FC = () => {
   return (
     <>
       <h1>Index</h1>
-      <Link to="/about">About</Link>
+      <Link to="/face">Face</Link>
     </>
   );
 };

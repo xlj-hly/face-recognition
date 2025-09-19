@@ -728,6 +728,11 @@
     "@types/babel__core" "^7.20.5"
     react-refresh "^0.17.0"
 
+"@vladmandic/human@^3.3.6":
+  version "3.3.6"
+  resolved "https://registry.npmmirror.com/@vladmandic/human/-/human-3.3.6.tgz#74397dcda15109f52db36de098de823b8497ddc5"
+  integrity sha512-Nr5mPfq1gQ+uKeXY5uM3Fj8UxvF5CEh2s6txM5wRThqaW0mF9huooOuZSrT8hhGho0hGaXLFdAwfD/2+teCv6A==
+
 acorn-jsx@^5.3.2:
   version "5.3.2"
   resolved "https://registry.npmmirror.com/acorn-jsx/-/acorn-jsx-5.3.2.tgz#7ed5bb55908b3b2f1bc55c6af1653bada7f07937"
