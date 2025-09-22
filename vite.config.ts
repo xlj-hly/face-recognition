@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { viteStaticCopy } from 'vite-plugin-static-copy'
 
 // 引入自动引入HOOK
 import AutoImport from "unplugin-auto-import/vite";
@@ -13,6 +14,14 @@ import { fileURLToPath } from 'url'
 export default defineConfig({
   plugins: [
     react(),
+    viteStaticCopy({
+      targets: [
+        {
+          src: 'node_modules/@vladmandic/human/models/*',
+          dest: 'human-models'
+        }
+      ]
+    }),
     AutoImport({
       // 自动导入相关API
       imports: ["react", "react-router-dom"],

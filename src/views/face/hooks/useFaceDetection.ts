@@ -82,6 +82,7 @@ export const useFaceDetection = (config: SmoothConfig = DEFAULT_CONFIG) => {
       // Human 库配置：启用人脸相关功能，禁用其他功能以提升性能
       const humanConfig = {
         backend: 'webgl' as const, // 使用 WebGL 后端进行 GPU 加速推理
+        modelBasePath: '/human-models/', // 设置模型文件基础路径
         face: {
           enabled: true, // 启用人脸检测
           detector: { 
